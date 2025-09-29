@@ -58,7 +58,7 @@ def get_dataset(df, ens_name, start_yr, end_yr, year_tol=0, exp_ids='all'):
                            (df['Experiment_ID'].isin(exp_ids))]
 
     out_df = df_period.groupby(['Institution_ID', 'Source_ID', 'Variant_Label', 'Experiment_ID']).agg(
-        Tmean=('Annual_Mean_Temp', np.mean), YearCount=('Year', pd.Series.nunique))
+        Tmean=('Annual_Mean_Temp', "mean"), YearCount=('Year', pd.Series.nunique))
     df_new_ss = out_df.loc[out_df['YearCount'] >= min_yrs]
     df_new_ss.reset_index(inplace=True)
 
@@ -71,8 +71,13 @@ def make_plot(baseline_period, future_period):
     p1.title.text = f"Global warming levels for the period {future_period[0]} to {future_period[1]}, with respect to a baseline period of {baseline_period[0]} to {baseline_period[1]}"
     renderer = p1.scatter(x=jitter("Experiment_ID", width=0.4, range=p1.x_range), y="Change", size=8, marker='circle',
                fill_alpha=0.5, line_color=None, fill_color=fc, legend_field='Ensemble_Name', source=source)
+
+    # renderer.selection_glyph.update(fill_alpha=1, line_color="black", fill_color=fc)
+    # renderer.nonselection_glyph.update(fill_alpha=0.2, line_color=None, fill_color=fc)
     renderer.selection_glyph = Scatter(fill_alpha=1, line_color="black", fill_color=fc)
     renderer.nonselection_glyph = Scatter(fill_alpha=0.2, line_color=None, fill_color=fc)
+    print(f"renderer.selection_glyph: {renderer.selection_glyph}")
+    print(f"renderer.nonselection_glyph: {renderer.nonselection_glyph}")
 
     p1.legend.location = "top_left"
     p1.legend.title = 'Ensemble Name'
@@ -241,6 +246,7 @@ def load_data(baseline_period=baseline_slider.value, future_period=future_slider
 
     if highlight:
         highrows = df_comb['Source_ID'].isin(highlight)
+        print(highrows)
         df_comb.loc[highrows, 'Highlight'] = df_comb.loc[highrows, 'Source_ID']
         i = df_comb[highrows].index.to_list()
         source = ColumnDataSource(df_comb)
@@ -268,6 +274,7 @@ def update_plot(attrname, old, new):
     print(f'updating {attrname} from {old} to {new}')
     src = load_data(baseline_period=baseline_slider.value, future_period=future_slider.value, bltol=bl_tol.value, futol=fu_tol.value, exp_ids=scenario_choice.value, models=model_choice.value, highlight=model_highlight.value, r=r_widg.value, i=i_widg.value, p=p_widg.value, f=f_widg.value)
     plot.x_range.factors = sorted(np.unique(src.data['Experiment_ID']))
+
     plot_source.data.update(src.data)
     i, = np.where(plot_source.data['Highlight'] != 'Other models')
     plot_source.selected.update(indices=i.tolist())
@@ -277,13 +284,20 @@ def update_plot(attrname, old, new):
     if not plot_source.selected.indices:
         plot.title.text = f"Global warming levels for the period {future_slider.value[0]} to {future_slider.value[1]}, with respect to a baseline period of {baseline_slider.value[0]} to {baseline_slider.value[1]}"
     else:
+        # renderer.selection_glyph.update(fill_alpha=0.8, fill_color=fc, line_color="black")
+        # renderer.nonselection_glyph.update(fill_alpha=0.3, fill_color=fc, line_color=None)
         model_list = sorted(np.unique(plot_source.data['Highlight'][i]))
         plot.title.text = f"Global warming levels for the period {future_slider.value[0]} to {future_slider.value[1]}, with respect to a baseline period of {baseline_slider.value[0]} to {baseline_slider.value[1]}, highlighting {', '.join(model_list)}"
 
+    print(f"renderer.selection_glyph: {renderer.selection_glyph.fill_alpha}")
+    print(f"renderer.selection_glyph: {renderer.selection_glyph}")
+    print(f"renderer.nonselection_glyph: {renderer.nonselection_glyph}")
+    
     # Make sure the color map is still set (perhaps don't need this)
-    renderer.glyph.fill_color = fc  # fc = Factor cmap set at the start
-    renderer.selection_glyph.fill_color = fc
-    renderer.nonselection_glyph.fill_color = fc
+
+    # renderer.glyph.fill_color = fc  # fc = Factor cmap set at the start
+    # renderer.selection_glyph.fill_color = fc
+    # renderer.nonselection_glyph.fill_color = fc
 
 
 # def update_table(attr, old, new):
@@ -330,6 +344,7 @@ ensembles in the future. </p>
 # Finally, create the layout of the page and add it to the current document
 sliders = column(row(baseline_slider, bl_tol), row(future_slider, fu_tol), sizing_mode='stretch_both')
 variant_selectors = column(row(r_widg, i_widg), row(p_widg, f_widg))
-controls = row(sliders, row(scenario_choice, model_choice, model_highlight), variant_selectors)
+controls = row(sliders, row(scenario_choice, model_choice), variant_selectors)
+# controls = row(sliders, row(scenario_choice, model_choice, model_highlight), variant_selectors)
 curdoc().add_root(column(controls, plot, data_table, div))
 curdoc().title = "Global Warming Levels for varying periods"
